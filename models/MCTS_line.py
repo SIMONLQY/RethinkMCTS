@@ -100,13 +100,11 @@ class MCTSLine:
         Funciton tree_policy is a function taking an agent + a list of ChanceNodes as argument
         and returning the one chosen by the tree policy.
         """
-        # 开始时，root是None
         decision_node_num = 0
         self.root = MineDecisionNode(None, initial_state, done, generator=self.generator, id=decision_node_num)
         decision_node_num += 1
-        # 如果rollouts=1，产生的程序存在cached_rewards里面的只有一个完整程序，其实select那一步就已经选了走哪个完整程序了
         print("Performing rollouts.")
-        for _ in range(self.args.rollout):  # 这个rollout控制的是选择次数，如果从根节点开始，第一次选第一层，第二次可能选的是第二层，第三次选第三层
+        for _ in range(self.args.rollout):
             if self.term_cond():
                 break
             rewards = []  # Rewards collected along the tree for the current rollout
@@ -120,19 +118,18 @@ class MCTSLine:
                     if node.is_terminal:
                         select = False  # Selected a terminal DecisionNode
                     else:
-                        node = self.node_choose_policy(self, node.children)  # 根据P-UCB从node的children中选择一个最大值的node， node is now a ChanceNode
-                else:  # ChanceNode，（状态，动作）节点，相当于树中的一条边
+                        node = self.node_choose_policy(self, node.children)
+                else:
                     state_p, reward, terminal = self.transition(node.parent.state, node.action)
-                    rewards.append(reward)  # 做完动作没有terminal的情况下，reward为0，后面backpropagation主要靠estimation
+                    rewards.append(reward)
 
-                    new_state = True  # 如果树有很多层，这里的while循环会从根节点一层一层往下走，直到找到一个新的state_p
-                    for i in range(len(node.children)):  # 其实chancenode只有一个child
+                    new_state = True
+                    for i in range(len(node.children)):
                         if node.children[i].state == state_p:
-                            # Shun: state_p already in the tree, point node to the corresponding Decision Node
                             node = node.children[i]
                             new_state = False
                             break
-                    if new_state:  # 一开始如果是三个rollouts，就三个root的children都会经过这里
+                    if new_state:
                         select = False  # Selected a ChanceNode
 
             # Expansion
@@ -141,9 +138,9 @@ class MCTSLine:
                 # print('\n-----------1selected action: ')
                 # print(f"{self.tokenizer.decode([node.action])}")
 
-                node.children.append(MineDecisionNode(node, state_p, terminal, generator=self.generator, id=decision_node_num))  # chance node 只有一个子节点，就是加上了那个动作的节点,但每一个decision node在创建的时候都会带有3个可能的动作
+                node.children.append(MineDecisionNode(node, state_p, terminal, generator=self.generator, id=decision_node_num))
                 decision_node_num += 1
-                node = node.children[-1]  # 就是新增加的decision node
+                node = node.children[-1]
 
             # Evaluation
             # now `rewards` collected all rewards in the ChanceNodes above this node
@@ -160,11 +157,11 @@ class MCTSLine:
                 # print(self.tokenizer.decode(state))
 
 
-                estimate = self.get_reward(state)  # 这里的state包含了输入的prompt。在get reward这步会将state cache起来
+                estimate = self.get_reward(state)
                 self.sample_nums = self.sample_nums + 1
 
                 # save this information for demo
-                node.info['complete_program'] = state  # decision node的info里面存了这个节点的可能的complete_program
+                node.info['complete_program'] = state
             else:
                 # the rewards are defined on terminating actions, the terminal states have no rewards
                 estimate = 0
@@ -183,7 +180,6 @@ class MCTSLine:
             # should finish backpropagating all the rewards back
             assert len(rewards) == 0
             self.sample_times.append(time.time() - self.st)
-        # root的children是chance node，每个对应于一个动作
 
     def convert_state_to_program(self, s):
         s = self.tokenizer.decode(s)
@@ -197,10 +193,8 @@ class MCTSLine:
             # cache rewards for training
             return self.cached_reward[tuple(s)]
 
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
 
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, mode)
             fixed = []
@@ -222,7 +216,6 @@ class MCTSLine:
         pass_rate = np.mean(np.asarray(curr_res) > 0) if len(curr_res) > 0 else 0
         reward = pass_rate
 
-        # 添加到cached reward
         if mode == 'train':
             self.cached_reward[tuple(s)] = reward
 

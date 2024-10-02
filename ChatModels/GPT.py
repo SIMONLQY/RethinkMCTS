@@ -75,7 +75,7 @@ class GPTChat:
         else:
             print(f'Model {self.args.arch} not implemented error!')
             assert 0
-        for ti in range(20):  # 3次尝试机会
+        for ti in range(20):
             sleep_interval = 7
             try:
                 new_messages = change_messages(self.tokenizer, messages, 8000)
@@ -141,10 +141,10 @@ class GPTChat:
                     response = self.client.chat.completions.create(
                         # model='gpt-3.5-turbo-0613',
                         model='gpt-3.5-turbo-0125',
-                        # model='gpt-3.5-turbo', # 最新的
+                        # model='gpt-3.5-turbo',
                         # model='gpt-4',
                         messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
-                        max_tokens=max_length,  # 调整生成文本的长度
+                        max_tokens=max_length,
                         temperature=temperature,
                         # top_p=1,
                         frequency_penalty=0,
@@ -153,12 +153,12 @@ class GPTChat:
                         top_logprobs=top_k
                     )
                     message = response.choices[0].message.content
-                    log_prob = response.choices[0].logprobs.content  # 是一个length等于top k的list，每个位置是一个list{token: .., logprob:.., bytes:..}
+                    log_prob = response.choices[0].logprobs.content
                 elif self.args.arch == 'gpt4':
                     response = self.client.chat.completions.create(
                         model='gpt-4-turbo-2024-04-09',
                         messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
-                        max_tokens=max_length,  # 调整生成文本的长度
+                        max_tokens=max_length,
                         temperature=temperature,
                         # top_p=1,
                         frequency_penalty=0,
@@ -167,12 +167,12 @@ class GPTChat:
                         top_logprobs=top_k
                     )
                     message = response.choices[0].message.content
-                    log_prob = response.choices[0].logprobs.content  # 是一个length等于top k的list，每个位置是一个list{token: .., logprob:.., bytes:..}
+                    log_prob = response.choices[0].logprobs.content
                 elif self.args.arch == 'gpt4o':
                     response = self.client.chat.completions.create(
                         model='gpt-4o',
                         messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
-                        max_tokens=max_length,  # 调整生成文本的长度
+                        max_tokens=max_length,
                         temperature=temperature,
                         # top_p=1,
                         frequency_penalty=0,
@@ -184,7 +184,7 @@ class GPTChat:
                     response = self.client.chat.completions.create(
                         model='gpt-4o-mini-2024-07-18',
                         messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
-                        max_tokens=max_length,  # 调整生成文本的长度
+                        max_tokens=max_length,
                         temperature=temperature,
                         # top_p=1,
                         frequency_penalty=0,
@@ -193,7 +193,7 @@ class GPTChat:
                         top_logprobs=top_k
                     )
                     message = response.choices[0].message.content
-                    log_prob = response.choices[0].logprobs.content  # 是一个length等于top k的list，每个位置是一个list{token: .., logprob:.., bytes:..}
+                    log_prob = response.choices[0].logprobs.content
                 elif self.args.arch == 'gpt3.5completion':
                     response = self.client.completions.create(
                         model="gpt-3.5-turbo-instruct",
@@ -218,7 +218,7 @@ class GPTChat:
                         response = self.client.chat.completions.create(
                             model='gpt-4o',
                             messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
-                            max_tokens=max_length,  # 调整生成文本的长度
+                            max_tokens=max_length,
                             temperature=temperature,
                             # top_p=1,
                             frequency_penalty=0,
@@ -230,10 +230,10 @@ class GPTChat:
                         response = self.client.chat.completions.create(
                             # model='gpt-3.5-turbo-0613',
                             model='gpt-3.5-turbo-0125',
-                            # model='gpt-3.5-turbo', # 最新的
+                            # model='gpt-3.5-turbo',
                             # model='gpt-4',
                             messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
-                            max_tokens=max_length,  # 调整生成文本的长度
+                            max_tokens=max_length,
                             temperature=temperature,
                             # top_p=1,
                             frequency_penalty=0,
@@ -242,7 +242,7 @@ class GPTChat:
                             top_logprobs=top_k
                         )
                         message = response.choices[0].message.content
-                        log_prob = response.choices[0].logprobs.content  # 是一个length等于top k的list，每个位置是一个list{token: .., logprob:.., bytes:..}
+                        log_prob = response.choices[0].logprobs.content
                 else:
                     sleep_t = sleep_interval * (ti + 1)
                     print(f"get {ti +1}, error: {e}, sleep {sleep_t} seconds")
@@ -272,7 +272,7 @@ class GPTChat:
         # print(response_text)
 
         sequences = self.tokenizer.encode(response_text, allowed_special={'<|endoftext|>'})
-        if self.args.arch == 'gpt3.5completion':  # completion 可能会出现的问题，sequence的encode会将['\n\n']识别成一个，但是实际上是一个一个换行符输出的
+        if self.args.arch == 'gpt3.5completion':
             if len(sequences) != len(log_probs):
                 print('------------')
                 print(sequences)
@@ -292,7 +292,7 @@ class GPTChat:
         if self.args.arch == 'gpt3.5completion':
             sequences = input_ids[0].tolist() + sequences
 
-        if len(log_probs) == 0:  # 之前已经生成了完整的程序,所以gpt判断不再需要token在后面
+        if len(log_probs) == 0:
             log_probs = [{'<|endoftext|>': 1.0}]
 
         tmp_return = WithProbReturn(sequences=torch.tensor(sequences).unsqueeze(0).to(self.device),
@@ -383,7 +383,6 @@ class GPTChat:
             encoded_ids = state
             input_ids = torch.LongTensor(encoded_ids).unsqueeze(0).to(self.device)
 
-            # 生成下面的line，以及line level的概率
             input_prompt = self.tokenizer.decode(input_ids[0].tolist())
 
             with_instru_input_prompt = (f"Here is a problem to be solved by Python program. The program is now incomplete. \n"
@@ -399,7 +398,7 @@ class GPTChat:
 
             for line_nums in range(self.width):
                 response_text, log_probs = self.generate_response_api(with_instru_input_prompt, top_k=1, max_length=1024, temperature=0.0)
-                if len(log_probs) == 0:  # 之前已经生成了完整的程序,所以gpt判断不再需要token在后面
+                if len(log_probs) == 0:
                     log_probs = [{'<|endoftext|>': 1.0}]
                 if "```python" in response_text:
                     response_text = response_text.split("```python")[1].split("```")[0]
@@ -417,7 +416,6 @@ class GPTChat:
             encoded_ids = state
             input_ids = torch.LongTensor(encoded_ids).unsqueeze(0).to(self.device)
 
-            # 生成下面的line，以及line level的概率
             input_prompt = self.tokenizer.decode(input_ids[0].tolist())
 
             with_instru_input_prompt = (f"{input_prompt} \n "
@@ -478,7 +476,7 @@ class GPTChat:
                                         f"Response with the code ONLY. No other explanation or words attached!\n") + input_prompt
             response_text, log_probs = self.generate_response_api(with_instru_input_prompt, top_k=self.width, max_length=2048)
             sequences = self.tokenizer.encode(response_text, allowed_special={'<|endoftext|>'})
-            if len(log_probs) == 0:  # 之前已经生成了完整的程序,所以gpt判断不再需要token在后面
+            if len(log_probs) == 0:
                 log_probs = [{'<|endoftext|>': 1.0}]
             model_output = WithProbReturn(sequences=torch.tensor(sequences).unsqueeze(0).to(self.device),
                                           scores=log_probs,
@@ -506,7 +504,6 @@ class GPTChat:
             encoded_ids = state
             input_ids = torch.LongTensor(encoded_ids).unsqueeze(0).to(self.device)
 
-            # 生成下面的line，以及line level的概率
             input_prompt = self.tokenizer.decode(input_ids[0].tolist())
 
             if not with_verbal:
@@ -668,7 +665,6 @@ class GPTChat:
             encoded_ids = state
             input_ids = torch.LongTensor(encoded_ids).unsqueeze(0).to(self.device)
 
-            # 生成下面的line，以及line level的概率
             input_prompt = self.tokenizer.decode(input_ids[0].tolist())
 
             if not with_verbal:
@@ -777,7 +773,6 @@ def add(a, b):
             encoded_ids = state
             input_ids = torch.LongTensor(encoded_ids).unsqueeze(0).to(self.device)
 
-            # 生成下面的line，以及line level的概率
             input_prompt = self.tokenizer.decode(input_ids[0].tolist())
             if not with_verbal:
                 with_instru_input_prompt = (f"{input_prompt} \n\n"

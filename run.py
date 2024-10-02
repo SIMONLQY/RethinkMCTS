@@ -4,7 +4,7 @@ import sys
 import os
 
 cur_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(cur_path[:cur_path.find('RethinkMCTS')] + 'RethinkMCTS')  # 这里要改为你自己的项目的主目录
+sys.path.append(cur_path[:cur_path.find('RethinkMCTS')] + 'RethinkMCTS')
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -17,7 +17,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import openai
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-API_KEY = "xxx"  # huawei
+API_KEY = "xxx"  # lqy
 openai.api_key = API_KEY
 
 os.environ["OPENAI_API_KEY"] = API_KEY
@@ -44,14 +44,13 @@ def str2bool(v):
 
 def main():
     parser = ArgumentParser("RethinkMCTS")
-    # --------跑实验前设置一下-----------
     parser.add_argument('-eid', '--experiment-idx', type=int, default=0, help='Experiment id for one model')
     parser.add_argument('-d', '--dataset', type=str, default='humaneval', choices=['apps', 'humaneval'])
     parser.add_argument('-m', '--model', type=str, default='rethinkmcts',
                         choices=['mcts_line', 'mcts_token', 'bs', 'sample', 'ldb', 'mcts_thought', 'mcts_code',
                                  'rethinkmcts', 'ToT', 'LATS', 'RethinkMCTSNoVerb',
                                  'RAP', 'LDB', 'Reflexion'])
-    parser.add_argument("--rollout", default=1, type=int, help="The maximum number of rollouts.")
+    parser.add_argument("--rollout", default=16, type=int, help="The maximum number of rollouts.")
     parser.add_argument("--arch", default="gpt4o-mini",
                         choices=["gpt3.5", "gpt3.5completion", 'gpt4', 'gpt4o-mini', 'gpt4o'])
     parser.add_argument('--mctsvalue', type=str, default='test',
@@ -67,7 +66,7 @@ def main():
     parser.add_argument('--json_save_all', type=str2bool, default=False, help='If True, save all json files.')
     # -------------------------------------------------------------------------------------------- dataset
     parser.add_argument("-i", "--index", default=None,
-                        type=int)  # 129, 81 is hard, could be used for single test; humaneval_10 for reset child
+                        type=int)
     parser.add_argument("--start", default=4000, type=int)
     parser.add_argument("--end", default=4100, type=int)
     # -------------------------------------------------------------------------------------------- APPS
@@ -95,7 +94,7 @@ def main():
     parser.add_argument("--ts-mode", default="best", choices=["best", "sample"],
                         help="Tree search mode within the evaluation step. `best` uses beam search, `sample` uses sampling.")
     parser.add_argument("--max_think_times", default=2, type=int, help="The max num of think times")
-    # -------------------------------------------------------------------------------------------- 全局变量
+    # --------------------------------------------------------------------------------------------
     parser.add_argument('--total_input_token_num', type=int, default=0, help='The maximum number of tokens to input.')
     parser.add_argument('--total_output_token_num', type=int, default=0, help='The maximum number of tokens to output.')
     parser.add_argument('--failed_json_num', type=int, default=0, help='The number of failed json format output.')
@@ -113,7 +112,7 @@ def main():
     parser.add_argument('--rethink_failed_nums', type=int, default=0, help='The failed number of rethink')
     parser.add_argument('--rethink_success_nums', type=int, default=0, help='The success number of rethink')
     parser.add_argument('--no_rethink_success_num', type=int, default=0, help='The success number of no rethink')
-    # -------------------------------------------------------------------------------------------- 全局常量
+    # --------------------------------------------------------------------------------------------
     parser.add_argument('--seed', type=int, default=0, help='random seed (default: 0)')
     parser.add_argument('--cudaDevice', type=str, default='cuda')
 
@@ -152,8 +151,6 @@ def main():
         if os.path.exists(args.save):
             shutil.rmtree(args.save)
             print(f"'{args.save}' has been removed and recreated.")
-            # 这是为了每次都重新生成结果，文件夹里不会混杂两个实验的结果
-            # 且可以通过rerun=False来继续跑之前的实验
 
     os.makedirs(args.save, exist_ok=True)
 

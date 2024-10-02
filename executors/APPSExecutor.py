@@ -53,7 +53,6 @@ class AppsExecutor:
 
             code = new_code
             print(code)
-        # 要测得真实结果这个multiprocessing必须开启，因为测试中去掉有害函数的部分需要用到这个
         if not self.args.debug:
             manager = multiprocessing.Manager()
             result = manager.list()
@@ -209,21 +208,20 @@ class AppsExecutor:
                     results.append([False, feedback_dict])
                 return results
 
-            # 挨个对比in_outs的每个元素
             for index, inputs in enumerate(in_outs["inputs"]):
                 # JSON forces dictionaries to have string keys; this undoes this (assuming a singleton list)
                 try:
-                    if isinstance(inputs[0], dict):  # �������ʽ��dict
+                    if isinstance(inputs[0], dict):
                         inputs = [{int(k): v for k, v in inputs[0].items()}]
                 except:
                     True
                 try:
-                    if isinstance(in_outs["outputs"][index], dict):  # ��index���������ʽ��dict
+                    if isinstance(in_outs["outputs"][index], dict):
                         in_outs["outputs"][index] = [{int(k): v for k, v in in_outs["outputs"][index].items()}]
                 except:
                     True
                 try:
-                    if isinstance(in_outs["outputs"][index][0], dict):  # ��index[0]���������ʽ��dict
+                    if isinstance(in_outs["outputs"][index][0], dict):
                         in_outs["outputs"][index] = [{int(k): v for k, v in in_outs["outputs"][index][0].items()}]
                 except:
                     True
@@ -277,10 +275,10 @@ class AppsExecutor:
 
                     with Capturing() as output:
                         try:
-                            call_method(method, inputs)  # �����inputs��ʵ��һ��input
+                            call_method(method, inputs)
                             # reset the alarm
                             signal.alarm(0)
-                            passed = True  # �����passedֻ���ܹ����У����ǲ�һ��ͨ������
+                            passed = True
                         except Exception as e:
                             # runtime error or took too long
                             signal.alarm(0)
@@ -291,7 +289,6 @@ class AppsExecutor:
 
                     if not passed:
                         if with_verbal:
-                            # 这一步not passed说明是runtime error，只能回复error
                             # failed_test = f"\nInput:\n {inputs}\nGround Truth Output:\n{in_outs['outputs'][index]}\n\nCurrent Execution Output: \n{output}"
                             failed_test = f"\n# Input:\n{inputs}\n# Ground Truth Output:\n{in_outs['outputs'][index]}\n\n# Current Execution Output: \n{output}"
                             feedback_dict = {
@@ -312,7 +309,7 @@ class AppsExecutor:
                     if passed and debug:
                         print(f"==> output = {output}, test outputs = {in_outs['outputs'][index]}")
 
-                    if custom_compare_(output, in_outs['outputs'][index]):  # �Ա�����ͱ�׼���
+                    if custom_compare_(output, in_outs['outputs'][index]):
                         tmp_result = True
                         if not with_verbal:
                             results.append(tmp_result)
@@ -488,7 +485,6 @@ class AppsExecutor:
                         else:
                             print(
                                 f"output = {output}, test outputs = {in_outs['outputs'][index]}, inputs = {inputs}, {type(inputs)}, {output == [in_outs['outputs'][index]]}")
-        # results对于每个input-output pair只添加一个true or false
         return results
 
 

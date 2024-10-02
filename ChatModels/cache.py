@@ -31,18 +31,17 @@ class GPTTopKCache:
         prefix_len = len(input_ids[0])
         # maybe do not need to cache all the way?
         output_len = len(output_ids[0])
-        if output_len == prefix_len + len(scores):  # 输出也包含了输入
+        if output_len == prefix_len + len(scores):
             token_range = range(prefix_len, output_len)
         else:
             token_range = range(0, output_len)
         # assert len(scores) == len(token_range)
-        if len(scores) != len(token_range):  # 这里如果不相等，是说明输出出现了一定问题，这是很小的概率，不可复刻，可以忽略，不加入cache即可
+        if len(scores) != len(token_range):
             print('len(scores) != len(token_range)', len(scores), len(token_range))
             return
 
-        # 如果token_range的长度大于prefix_len + self.cache_steps, 那么就只缓存prefix_len + self.cache_steps长度
         if len(token_range) > prefix_len + self.cache_steps:
-            if output_len == prefix_len + len(scores):  # 输出也包含了输入
+            if output_len == prefix_len + len(scores):
                 token_range = range(prefix_len, prefix_len + self.cache_steps)
             else:
                 token_range = range(0, prefix_len + self.cache_steps)

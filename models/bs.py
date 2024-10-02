@@ -55,9 +55,7 @@ class BS:
         return output_dict
 
     def get_reward(self, s):
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, 'test')
             fixed = []

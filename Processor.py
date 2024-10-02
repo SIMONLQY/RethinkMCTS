@@ -16,7 +16,7 @@ class Processor(object):
         self.args = args
         self.st = time.time()
 
-        # 模型
+        # model
         self.device = args.cudaDevice
         if args.model == 'mcts_token':
             self.model = MCTSToken(args)
@@ -43,7 +43,7 @@ class Processor(object):
         elif args.model == 'Reflexion':
             self.model = Reflexion(args)
 
-        # 数据
+        # data
         self.problem_indices = []
         self.removed_list = []
         if args.index is not None:
@@ -63,7 +63,7 @@ class Processor(object):
     def run(self):
         for idx, problem_instance in zip(self.problem_indices, self.data_handler.problems):
             self.st = time.time()
-            # 记录结果
+            # log results
             result_loc = os.path.join(self.args.save, f"{idx}.json")
             if not self.args.rerun:
                 # if not forcing rerun, check if this experiment has run or failed before
@@ -72,7 +72,7 @@ class Processor(object):
                     continue
             print(f"Solving Problem #{idx}")
 
-            # 生成代码
+            # generate code
             output_dict = self.model.generate(problem_instance)
             if output_dict is None:
                 continue

@@ -18,29 +18,25 @@ warnings.filterwarnings('ignore')
 
 
 def get_raw_data_path():
-    return '/home/tmp/qyli/data'
+    return '/home/xxx'
 
 
 def get_proj_path(proj_name='RethinkMCTS'):
     """
-    :param item_name: 项目名称，如pythonProject
+    :param item_name: project name
     :return:
     """
-    # 获取当前所在文件的路径
     cur_path = os.path.abspath(os.path.dirname(__file__))
 
-    # 获取根目录
     return cur_path[:cur_path.find(proj_name)] + proj_name
 
 
 def extract_generated_test_cases(text):
-    # 匹配可能的测试用例格式，包括不同的比较运算符
     pattern = re.compile(r"assert (\w+)(\(.*?\)) (==|<=|>=|<|>)\s*(.*)")
     matches = re.findall(pattern, text)
-    # 格式化找到的每个测试用例
+
     test_cases = []
     for function_name, inputs, operator, output in matches:
-        # 创建格式化的字符串
         case = f"assert {function_name}({inputs}) {operator} {output}"
         test_cases.append(case)
 
@@ -48,7 +44,6 @@ def extract_generated_test_cases(text):
 
 
 if __name__ == '__main__':
-    # 示例文本，你可以替换这部分为从文件或其他来源读取的文本
     example_text = """
 **1. Basic Test Cases**:
 
@@ -90,10 +85,8 @@ assert numerical_letter_grade([i/10 for i in range(0, 41)]) == ['E', 'E', 'E', '
 ```
     """
 
-    # 提取测试用例
     test_cases_list = extract_generated_test_cases(example_text)
 
-    # 打印结果
     for case in test_cases_list:
         print(case)
 

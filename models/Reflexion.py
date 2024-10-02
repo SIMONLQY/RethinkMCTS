@@ -130,7 +130,7 @@ class Reflexion:
             failed_tests = ''
             tmp_count = 0
             for k, verbal_feedback in enumerate(verbal_feedbacks):
-                if not isinstance(verbal_feedback, str):  # 有failed test情况下，verbal_feedback是dict而不是str
+                if not isinstance(verbal_feedback, str):
                     if tmp_count <= 5:
                         self.args.verbal_length_check_num += 1
                         if len(self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})) > 2048:
@@ -163,7 +163,7 @@ class Reflexion:
                 failed_tests = ''
                 tmp_count = 0
                 for k, verbal_feedback in enumerate(verbal_feedbacks):
-                    if not isinstance(verbal_feedback, str):  # 有failed test情况下，verbal_feedback是dict而不是str
+                    if not isinstance(verbal_feedback, str):
                         if tmp_count <= 5:
                             self.args.verbal_length_check_num += 1
                             if len(self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})) > 2048:
@@ -194,8 +194,8 @@ class Reflexion:
 
         output_dict = {}
         output_dict['final_program'] = cur_func_impl
-        output_dict['train_reward'] = train_reward  # 这里的train reward对应的是test的code的
-        output_dict['test_reward'] = test_reward  # 这里的test reward并不是最高train reward的，而是最后一次的train reward的代码
+        output_dict['train_reward'] = train_reward
+        output_dict['test_reward'] = test_reward
         output_dict['all_programs'] = complete_programs
         output_dict['all_train_rewards'] = train_rewards
         output_dict['all_test_rewards'] = test_rewards
@@ -219,10 +219,8 @@ class Reflexion:
             else:
                 return self.cached_reward[tuple(s)]
 
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
 
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, mode, with_verbal=with_verbal)  # with_verbal: curr_res=[[True/False, feedback_dict]]
             fixed = []
@@ -249,7 +247,6 @@ class Reflexion:
         pass_rate = np.mean(np.asarray(curr_res) > 0) if len(curr_res) > 0 else 0
         reward = pass_rate
 
-        # 添加到cached reward
         if mode == 'train':
             self.cached_reward[tuple(s)] = reward
             if with_verbal:

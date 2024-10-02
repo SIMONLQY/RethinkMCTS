@@ -124,14 +124,12 @@ class LATS:
         Function tree_policy is a function taking an agent + a list of ChanceNodes as argument
         and returning the one chosen by the tree policy.
         """
-        # 开始时，root是None
         decision_node_num = 0
         self.root = MineDecisionNode(None, initial_state, done, generator=self.generator, id=decision_node_num, tokenizer=self.tokenizer, initial_state=initial_state)
         self.root.__expand__()
         decision_node_num += 1
-        # 如果rollouts=1，产生的程序存在cached_rewards里面的只有一个完整程序，其实select那一步就已经选了走哪个完整程序了
         print("Performing rollouts.")
-        for rollout_count in range(self.args.rollout):  # 这个rollout控制的是选择次数，如果从根节点开始，第一次选第一层，第二次可能选的是第二层，第三次选第三层
+        for rollout_count in range(self.args.rollout):
             self.args.rollout_count = rollout_count
             if self.term_cond():
                 break
@@ -146,19 +144,18 @@ class LATS:
                     if node.is_terminal:
                         select = False  # Selected a terminal DecisionNode
                     else:
-                        node = self.node_choose_policy(self, node.children)  # 根据P-UCB从node的children中选择一个最大值的node， node is now a ChanceNode
-                else:  # ChanceNode，（状态，动作）节点，相当于树中的一条边
+                        node = self.node_choose_policy(self, node.children)
+                else:
                     state_p, reward, terminal = self.transition(node.parent.state, node.action)
-                    rewards.append(reward)  # 做完动作没有terminal的情况下，reward为0，后面backpropagation主要靠estimation
+                    rewards.append(reward)
 
-                    new_state = True  # 如果树有很多层，这里的while循环会从根节点一层一层往下走，直到找到一个新的state_p
-                    for i in range(len(node.children)):  # 其实chancenode只有一个child, 或者没有child(更常见，因为是还没有探索过的节点)
+                    new_state = True
+                    for i in range(len(node.children)):
                         if node.children[i].state == state_p:
-                            # Shun: state_p already in the tree, point node to the corresponding Decision Node
                             node = node.children[i]
                             new_state = False
                             break
-                    if new_state:  # 一开始如果是三个rollouts，就三个root的children都会经过这里
+                    if new_state:
                         select = False  # Selected a ChanceNode
 
             selection_print = []
@@ -179,7 +176,6 @@ class LATS:
                 # print('\n-----------1selected action: ')
                 # print(f"{self.tokenizer.decode([node.action])}")
 
-                # chance node 只有一个子节点，就是加上了那个动作的节点,但每一个decision node在创建的时候都会带有3个可能的动作
                 node.children.append(MineDecisionNode(node, state_p, terminal, generator=self.generator, id=decision_node_num, decision_memory=node.chance_memory, tokenizer=self.tokenizer, initial_state=initial_state))
                 decision_node_num += 1
                 node = node.children[-1]  # 就是新增加的decision node
@@ -214,7 +210,7 @@ class LATS:
                 failed_test_list = []
                 tmp_count = 0
                 for k, verbal_feedback in enumerate(verbal_feedbacks):
-                    if not isinstance(verbal_feedback, str):  # 有failed test情况下，verbal_feedback是dict而不是str
+                    if not isinstance(verbal_feedback, str):
                         if tmp_count <= 5:
                             self.args.verbal_length_check_num += 1
                             if len(self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})) > 2048:
@@ -224,10 +220,9 @@ class LATS:
                             failed_tests += f"\n\n## Failed test {tmp_count + 1}: {verbal_feedback['output']}"
                             failed_test_list.append(verbal_feedback['output'])
                             tmp_count += 1
-                if failed_tests != '':  # 有错误
+                if failed_tests != '':
                     code = self.tokenizer.decode(code_id)
 
-                    # 将错误总结成本节点的reflection
                     system_msg = f"You are an expert in programming."
                     verbalFeedback = (f"{self.tokenizer.decode(state)}\n\n[Current impl]:\n{code}\n\n"
                                       f"Above is the implementations of previous codes and current implementation of codes. The current code is generated based on the previous codes. "
@@ -252,17 +247,17 @@ class LATS:
                     print(response)
                     memory = f"\n[Unit test results from this impl]: \n{failed_tests}\n\n[Reflection on this previous impl]: \n{response}"
 
-                    node.decision_memory = self.tokenizer.encode(memory)   # 叶子节点首次获得其decision memory
+                    node.decision_memory = self.tokenizer.encode(memory)
 
                     node.__expand__(verbal_feedback=verbalFeedback)
                 else:
                     # no reflect
                     memory = f"[Unit test result]: All visible test cases passed for this implementation."
-                    node.decision_memory = self.tokenizer.encode(memory)   # 叶子节点首次获得其decision memory
+                    node.decision_memory = self.tokenizer.encode(memory)
                     node.__expand__()
 
                 # save this information for demo
-                node.info['complete_program'] = code_id  # decision node的info里面存了这个节点的可能的complete_program
+                node.info['complete_program'] = code_id
 
                 self.sample_nums = self.sample_nums + 1
             else:
@@ -284,7 +279,6 @@ class LATS:
             # should finish backpropagating all the rewards back
             assert len(rewards) == 0
             self.sample_times.append(time.time() - self.st)
-        # root的children是chance node，每个对应于一个动作
 
     def convert_state_to_program(self, s):
         s = self.tokenizer.decode(s)
@@ -301,10 +295,8 @@ class LATS:
             else:
                 return self.cached_reward[tuple(s)]
 
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
 
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, mode, with_verbal=with_verbal)  # with_verbal: curr_res=[[True/False, feedback_dict]]
             fixed = []
@@ -331,7 +323,6 @@ class LATS:
         pass_rate = np.mean(np.asarray(curr_res) > 0) if len(curr_res) > 0 else 0
         reward = pass_rate
 
-        # 添加到cached reward
         if mode == 'train':
             self.cached_reward[tuple(s)] = reward
             if with_verbal:
@@ -383,7 +374,6 @@ class LATS:
     def gen_test_evaluation(self, cur_state, cur_code=None, initial_state=None):
         self.args.generate_tests_total += 1
 
-        # 生成新的test case来评估代码
         system_msg = f"As a tester, your task is to create comprehensive test cases for the incomplete Python function provided below."
         input_prompt = \
 f"""
@@ -416,7 +406,7 @@ conditions.
         test_case_list = extract_generated_test_cases(response)
         self.cur_prob_instance['generated_tests'] = test_case_list
         with_verbal = False
-        # 计算pass rate
+
         try:
             if len(test_case_list) == 0:
                 assert False
@@ -446,7 +436,6 @@ conditions.
         except Exception as e:
             self.args.failed_generate_tests_count += 1
             print(f"test framework exception = {repr(e)}{e}\n")
-            # 如果生成的test case无法在格式上满足要求，则让大模型判断是否正确
             input_prompt = (f"{self.tokenizer.decode(cur_state)}\n\n{cur_code}\n\n"
                             f"Above is a Python code problem with the thoughts and code to solve the problem. The code could pass all the example test cases, however, it may or may not be completely correct. \n"
                             f"Please evaluate and return the correctness score in range [-1, 1]\n"
@@ -544,7 +533,7 @@ class MineDecisionNode:
         # one by one way
         rst_state = initial_state
         code_test_reflections = []
-        if self.parent:  # 不是跟节点
+        if self.parent:
             immediate_mem = self.decision_memory
             code_test_reflections.append(immediate_mem)
         cur_node = self.parent

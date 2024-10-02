@@ -106,14 +106,12 @@ class MCTSThought:
         Funciton tree_policy is a function taking an agent + a list of ChanceNodes as argument
         and returning the one chosen by the tree policy.
         """
-        # 开始时，root是None
         decision_node_num = 0
         self.root = MineDecisionNode(None, initial_state, done, generator=self.generator, id=decision_node_num)
         self.root.__expand__()
         decision_node_num += 1
-        # 如果rollouts=1，产生的程序存在cached_rewards里面的只有一个完整程序，其实select那一步就已经选了走哪个完整程序了
         print("Performing rollouts.")
-        for _ in range(self.args.rollout):  # 这个rollout控制的是选择次数，如果从根节点开始，第一次选第一层，第二次可能选的是第二层，第三次选第三层
+        for _ in range(self.args.rollout):
             if self.term_cond():
                 break
             rewards = []  # Rewards collected along the tree for the current rollout
@@ -127,19 +125,18 @@ class MCTSThought:
                     if node.is_terminal:
                         select = False  # Selected a terminal DecisionNode
                     else:
-                        node = self.node_choose_policy(self, node.children)  # 根据P-UCB从node的children中选择一个最大值的node， node is now a ChanceNode
-                else:  # ChanceNode，（状态，动作）节点，相当于树中的一条边
+                        node = self.node_choose_policy(self, node.children)
+                else:
                     state_p, reward, terminal = self.transition(node.parent.state, node.action)
-                    rewards.append(reward)  # 做完动作没有terminal的情况下，reward为0，后面backpropagation主要靠estimation
+                    rewards.append(reward)
 
-                    new_state = True  # 如果树有很多层，这里的while循环会从根节点一层一层往下走，直到找到一个新的state_p
-                    for i in range(len(node.children)):  # 其实chancenode只有一个child
+                    new_state = True
+                    for i in range(len(node.children)):
                         if node.children[i].state == state_p:
-                            # Shun: state_p already in the tree, point node to the corresponding Decision Node
                             node = node.children[i]
                             new_state = False
                             break
-                    if new_state:  # 一开始如果是三个rollouts，就三个root的children都会经过这里
+                    if new_state:
                         select = False  # Selected a ChanceNode
 
             # Expansion
@@ -148,11 +145,11 @@ class MCTSThought:
                 # print('\n-----------1selected action: ')
                 # print(f"{self.tokenizer.decode([node.action])}")
 
-                node.children.append(MineDecisionNode(node, state_p, terminal, generator=self.generator, id=decision_node_num, decision_memory=node.chance_memory))  # chance node 只有一个子节点，就是加上了那个动作的节点,但每一个decision node在创建的时候都会带有3个可能的动作
+                node.children.append(MineDecisionNode(node, state_p, terminal, generator=self.generator, id=decision_node_num, decision_memory=node.chance_memory))
                 if not self.args.mctsvalue in ['verbalMemory', 'verbalMemoHistory']:
                     node.children[-1].__expand__()
                 decision_node_num += 1
-                node = node.children[-1]  # 就是新增加的decision node
+                node = node.children[-1]
 
             # Evaluation
             # now `rewards` collected all rewards in the ChanceNodes above this node
@@ -165,12 +162,12 @@ class MCTSThought:
                     """
                     evaluation = self.get_evaluation(state)
                     state = self.generator.get_rationale_predicted_sequence(state)
-                    complete_prog_score = self.get_reward(state)  # 这里的state包含了输入的prompt。在get reward这步会将state cache起来
+                    complete_prog_score = self.get_reward(state)
                     estimate = 0.5 * complete_prog_score + 0.5 * evaluation
                     if tuple(state) not in self.cached_value.keys():
                         self.cached_value[tuple(state)] = estimate
                     # save this information for demo
-                    node.info['complete_program'] = state  # decision node的info里面存了这个节点的可能的complete_program
+                    node.info['complete_program'] = state
 
                     self.sample_nums = self.sample_nums + 1
                 elif self.args.mctsvalue == 'gptevalTC':
@@ -187,7 +184,7 @@ class MCTSThought:
                     if tuple(code_id) not in self.cached_value.keys():
                         self.cached_value[tuple(code_id)] = estimate
                     # save this information for demo
-                    node.info['complete_program'] = code_id  # decision node的info里面存了这个节点的可能的complete_program
+                    node.info['complete_program'] = code_id
 
                     self.sample_nums = self.sample_nums + 1
                 elif self.args.mctsvalue in ['verbalMemory', 'verbalMemoHistory']:
@@ -220,7 +217,7 @@ class MCTSThought:
                     tmp_count = 0
                     failed_test_list = []
                     for k, verbal_feedback in enumerate(verbal_feedbacks):
-                        if not isinstance(verbal_feedback, str):  # 有failed test情况下，verbal_feedback是dict而不是str
+                        if not isinstance(verbal_feedback, str):
                             if tmp_count <= 5:
                                 if len(self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})) > 2048:
                                     tmp_shorter = self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})[:2048]
@@ -235,7 +232,7 @@ class MCTSThought:
                                         f"However, the code generated following the thoughts doesn't pass some test cases. Here are the test cases the code doesn't pass: \n"
                                         f"{failed_tests} \n")
 
-                        for k, cur_failed_test in enumerate(failed_test_list):  # 这里用k就可以了，不再需要tmp count，因为有问题的没有加入到list里面
+                        for k, cur_failed_test in enumerate(failed_test_list):
                             if self.args.dataset == 'humaneval':
                                 trace_block_texts, messages = ldb_debug(self.generator, [], self.tokenizer.decode(state), code, cur_failed_test, entry=self.cur_prob_instance['entry_point'], dataset_type=self.args.dataset)
                             elif self.args.dataset == 'apps':
@@ -244,7 +241,6 @@ class MCTSThought:
                                 raise ValueError("Unknown dataset type")
                             block_debug_info = messages[-1].content
 
-                            # 只相比于rationale增加一个test case的具体分析
                             if trace_block_texts != '':
                                 verbalMemory += f"And here is one specific debug information of one failed test case. The code is divided into blocks and the analysis of the mistaken block is given:"
                                 verbalMemory += f"\n## Failed test: \n{cur_failed_test}\n# Trace blocks debugging:\n{trace_block_texts}\n\n{block_debug_info}"
@@ -262,7 +258,7 @@ class MCTSThought:
                         node.__expand__()
 
                     # save this information for demo
-                    node.info['complete_program'] = code_id  # decision node的info里面存了这个节点的可能的complete_program
+                    node.info['complete_program'] = code_id
 
                     self.sample_nums = self.sample_nums + 1
                 elif self.args.mctsvalue == 'test':
@@ -278,12 +274,12 @@ class MCTSThought:
                     print('\n------4output sequence')
                     print(self.tokenizer.decode(state))
 
-                    estimate = self.get_reward(state)  # 这里的state包含了输入的prompt。在get reward这步会将state cache起来
+                    estimate = self.get_reward(state)
                     if tuple(state) not in self.cached_value.keys():
                         self.cached_value[tuple(state)] = estimate
                     self.sample_nums = self.sample_nums + 1
                     # save this information for demo
-                    node.info['complete_program'] = state  # decision node的info里面存了这个节点的可能的complete_program
+                    node.info['complete_program'] = state
             else:
                 # the rewards are defined on terminating actions, the terminal states have no rewards
                 estimate = 0
@@ -302,7 +298,6 @@ class MCTSThought:
             # should finish backpropagating all the rewards back
             assert len(rewards) == 0
             self.sample_times.append(time.time() - self.st)
-        # root的children是chance node，每个对应于一个动作
 
     def convert_state_to_program(self, s):
         s = self.tokenizer.decode(s)
@@ -319,10 +314,8 @@ class MCTSThought:
             else:
                 return self.cached_reward[tuple(s)]
 
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
 
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, mode, with_verbal=with_verbal)  # with_verbal: curr_res=[[True/False, feedback_dict]]
             fixed = []
@@ -349,7 +342,6 @@ class MCTSThought:
         pass_rate = np.mean(np.asarray(curr_res) > 0) if len(curr_res) > 0 else 0
         reward = pass_rate
 
-        # 添加到cached reward
         if mode == 'train':
             self.cached_reward[tuple(s)] = reward
             if with_verbal:

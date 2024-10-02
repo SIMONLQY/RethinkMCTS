@@ -104,15 +104,14 @@ class ToT:
     def tot_bfs_procedure(self, initial_state, done):
         ys = [initial_state]  # current output candidates
         infos = []
-        # 如果rollouts=1，产生的程序存在cached_rewards里面的只有一个完整程序，其实select那一步就已经选了走哪个完整程序了
         print("Performing rollouts.")
-        for rollout_count in range(self.args.rollout):  # 这个rollout控制的是选择次数，如果从根节点开始，第一次选第一层，第二次可能选的是第二层，第三次选第三层
+        for rollout_count in range(self.args.rollout):
             self.args.rollout_count = rollout_count
             if self.term_cond():
                 break
 
             # expansion/propose
-            new_ys = [self.get_proposals(y) for y in ys]  # 应该是list of lists
+            new_ys = [self.get_proposals(y) for y in ys]
             new_ys = list(itertools.chain(*new_ys))
             ids = list(range(len(new_ys)))
             codes = [self.generator.get_rationale_predicted_sequence(self.tokenizer.encode(s)) for s in new_ys]
@@ -130,7 +129,6 @@ class ToT:
             ys = [self.tokenizer.encode(newys) for newys in select_new_ys]
 
             self.sample_times.append(time.time() - self.st)
-        # root的children是chance node，每个对应于一个动作
 
     def convert_state_to_program(self, s):
         s = self.tokenizer.decode(s)
@@ -144,10 +142,8 @@ class ToT:
             # cache rewards for training
             return self.cached_reward[tuple(s)]
 
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
 
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, mode, with_verbal=with_verbal)  # with_verbal: curr_res=[[True/False, feedback_dict]]
             fixed = []
@@ -174,7 +170,6 @@ class ToT:
         pass_rate = np.mean(np.asarray(curr_res) > 0) if len(curr_res) > 0 else 0
         reward = pass_rate
 
-        # 添加到cached reward
         if mode == 'train':
             self.cached_reward[tuple(s)] = reward
         return reward
@@ -200,7 +195,6 @@ class ToT:
 
     def get_evaluation(self, cur_state, cur_code=None):
         evaluation = 0.0
-        # 原文件中verbal memory的evaluation方式
         system_msg = f"You are a evaluator that evaluates the code is suitable for solving a given problem."
         input_prompt = (f"{self.tokenizer.decode(cur_state)}\n\n{cur_code}\n\n"
                         f"Above is a Python code problem with the thoughts and code to solve the problem. The code could pass all the example test cases, however, it may or may not be completely correct. \n"
@@ -212,18 +206,6 @@ class ToT:
                         f"{{\"evaluation\": 1.0, \"explanation\": \"The generated code is the correct solution that can pass all the possible test cases and strange corner cases too. \"}} \n"
                         f"{{\"evaluation\": 0.1, \"explanation\": \"The code is not the correct solution but can pass some simple test cases. \"}} \n"
                         f"{{\"evaluation\": 0.85, \"explanation\": \"The code can pass most test cases while may fail on some corner cases. \"}} ")
-
-        # new prompt
-        # input_prompt = (f"{self.tokenizer.decode(cur_state)}\n\n{cur_code}\n\n"
-        #                 f"Above is a Python code problem with the thoughts and code to solve the problem. The code could pass all the example test cases, however, it may or may not be completely correct. \n"
-        #                 f"Please evaluate and return the correctness score in range [-1, 1]\n"
-        #                 f"Evaluate the correctness of the code and give only ONE evaluation score. \n"
-        #                 f"The code's correctness is whether it can pass all the possible unseen test cases of the problem, not just the given ones."
-        #                 f"Example Answers: \n"
-        #                 f"{{\"evaluation\": 0.85,  \"explanation\": \"The code seems correct, but i am confused about some part of it so i am not sure.\"}} \n"
-        #                 f"{{\"evaluation\": 1.0, \"explanation\": \"The generated code is the correct solution that can pass all the possible test cases. \"}} \n"
-        #                 f"{{\"evaluation\": 0.3, \"explanation\": \"The code is not the correct solution but can pass some simple test cases. \"}} \n"
-        #                 f"{{\"evaluation\": 0.75, \"explanation\": \"The code can pass most test cases while may fail on some corner cases, for example test case [CONCRETE_SAMPLE] is one that the code can't pass. \"}} ")
 
         print('\n--------------5 evaluation input prompt')
         print(input_prompt)

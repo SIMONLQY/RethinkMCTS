@@ -13,7 +13,6 @@ from utils import get_proj_path, get_raw_data_path
 import json
 from tqdm import tqdm
 
-# 忽略warning的输出
 warnings.filterwarnings('ignore')
 
 
@@ -111,7 +110,7 @@ def eval_and_save_problems(args, indices):
     train_test_trans_fail_num = 0.0
 
     for index in indices:
-        # if index >= 4088:  # 只看前xx道题目
+        # if index >= 4088:
         #     continue
         if str(index) in rewards.keys() and not args.retest:
             # print(f"skipping {index} because it's already in results json file")
@@ -238,7 +237,7 @@ def get_exp_results(exp_dir_name, exp_labels, playlist, disjoint_flag=False):
         files = os.listdir(args.save)
         indices = [int(re.findall(r'\d+', file)[0]) for file in files if (file.endswith('.json') and 'result' not in file)]
 
-        # 只看前100道题目
+        # Only formal 100 questions
         # tmp_indices = [int(re.findall(r'\d+', file)[0]) for file in files if (file.endswith('.json') and 'result' not in file)]
         # indices = []
         # for id in tmp_indices:
@@ -248,11 +247,10 @@ def get_exp_results(exp_dir_name, exp_labels, playlist, disjoint_flag=False):
         results = eval_and_save_problems(args, indices)
         all_results.append(results)
 
-        # 打印unsolved problem信息
+        # print unsolved problem
         print('----------------------------------')
         print(f'Experiment {exp_id} unsolved problems:')
         for index in results['rewards'].keys():
-            # 打印错误题目
             # if True:
             # if index == 115:
             if results['rewards'][index] != 1.0 and len(playlist) == 1:
@@ -398,7 +396,7 @@ if __name__ == "__main__":
 
     dataset = 'apps'
     # dataset = 'humaneval'
-    playlist = [2]  # 前面放新跑的实验，后面放旧的/要超过的baseline
+    playlist = [2]
 
     disjoint_flag = True
 

@@ -57,7 +57,7 @@ def divide(prog):
     divided_block = []
     prog_lines = prog.split("\n")
     for block in cfg:
-        if block.at() is None or block.end() is None:  # 会出现empty block的情况
+        if block.at() is None or block.end() is None:
             continue
         divided_block.append([block, prog_lines[block.at():block.end()+1], block.id])
     return divided_block, None
@@ -164,13 +164,13 @@ def extract_value(output):
     return output
 
 
-def instrument_simple_block(prog, entry, divided_blocks):  # 这个函数的目的是在给定的 Python 代码中插入调试语句，以便在代码执行过程中打印变量的值。
+def instrument_simple_block(prog, entry, divided_blocks):
     stmts = prog.split("\n")
     # Get range of entry function
-    rang = get_range(prog, entry)  # 获取 entry 函数在代码中的起始和结束行号。
-    block_insert = set([b[0].at() - 1 for b in divided_blocks] + [b[0].end() for b in divided_blocks])  # 计算需要插入调试语句的行号集合。
+    rang = get_range(prog, entry)
+    block_insert = set([b[0].at() - 1 for b in divided_blocks] + [b[0].end() for b in divided_blocks])
     if rang is None:
-        assert False, f"{entry} not in {prog}!"  # 如果 entry 函数不在代码中，抛出断言错误。
+        assert False, f"{entry} not in {prog}!"
     res = []
     for i, stmt in enumerate(stmts):
         if i < rang[0]:
@@ -196,7 +196,7 @@ def instrument_simple_block(prog, entry, divided_blocks):  # 这个函数的目�
     return "\n".join(res)
 
 
-def collect_runtime_value_simple(value_prof_prog, test_input=None):  # 这个函数的目的是在运行给定的 Python 代码时收集其运行时输出，并处理可能的超时或执行错误。
+def collect_runtime_value_simple(value_prof_prog, test_input=None):
     hook = ""
     import sys
     hooked_prog = hook + "\n" + value_prof_prog
@@ -220,7 +220,7 @@ def collect_runtime_value_simple(value_prof_prog, test_input=None):  # 这个函
     output = res.stdout.decode('utf-8')
     return output
 
-def parse_runtime_value_simple_block(output, trace_lines):  # 这个函数的目的是解析运行时输出和跟踪信息，并将它们组合成带有注释的代码块。
+def parse_runtime_value_simple_block(output, trace_lines):
     trace_idx = 0
     blocks = []
     blk = []
@@ -312,16 +312,16 @@ def get_code_traces_block(prog, test, entry):
         if trace_lines == "*timeout*" or trace_lines.startswith("*execution fail*") or trace_lines.startswith("*parse fail*"):
             return trace_lines
     log_of_tracing += str("Trace:\n"+ '\n'.join(trace_lines[:10]))
-    value_prof_prog = instrument_simple_block(prog, entry, divided_blocks)  # 在指定的代码块位置插入调试语句
+    value_prof_prog = instrument_simple_block(prog, entry, divided_blocks)
     log_of_tracing += str("\nValue Profile Program:\n" + value_prof_prog + "\n" + test + "\n")
     if entry != 'code':
-        output = collect_runtime_value_simple(value_prof_prog + "\n" + test)  # 在运行给定的 Python 代码时收集其运行时输出。代码中已经有了打印变量值的调试语句，所以输出就是对应的变量值。
+        output = collect_runtime_value_simple(value_prof_prog + "\n" + test)
     else:
-        output = collect_runtime_value_simple(value_prof_prog + "\n" + 'code()', test_input=test)  # 在运行给定的 Python 代码时收集其运行时输出。代码中已经有了打印变量值的调试语句，所以输出就是对应的变量值。
+        output = collect_runtime_value_simple(value_prof_prog + "\n" + 'code()', test_input=test)
     if output == "*timeout*" or output.startswith("*execution fail*"):
         return output
     log_of_tracing += "\n" + str("Value Profile Output:\n" + output)
-    runtime_value = parse_runtime_value_simple_block(output, trace_lines)  # 将对应行获得的变量值以注释的形式添加到代码中
+    runtime_value = parse_runtime_value_simple_block(output, trace_lines)
     if not os.path.exists("./tracing_log"):
         os.makedirs("./tracing_log")
     log_file = "./tracing_log/trace.log."+str(random.randint(0, 10000))
@@ -524,10 +524,10 @@ class LDB:
         self.cur_prob_instance = None
         self.sample_times = []
         self.st = time.time()
-        # 加载seed program
+
         self.seed_codes = {}
         if self.args.arch == 'gpt3.5' and self.args.dataset == 'humaneval':
-            # 这里的seed实际上是gpt3.50625生成版本的代码
+
             seed_dir = f"{get_proj_path()}/dataProcess/{self.args.dataset}/seed/gpt-3.5-turbo-0125/"
             seed_path = os.path.join(seed_dir, "seed.jsonl")
             with jsonlines.open(seed_path) as reader:
@@ -553,7 +553,6 @@ class LDB:
             cur_iter = 0
             # first attempt
 
-            # 初始代码设置成gpt3.5生成的seed
             if len(self.seed_codes) == 0:
                 code_id = self.generator.get_rationale_predicted_sequence(initial_state)
                 cur_func_impl = self.tokenizer.decode(code_id)
@@ -574,7 +573,7 @@ class LDB:
             failed_test_list = []
             tmp_count = 0
             for k, verbal_feedback in enumerate(verbal_feedbacks):
-                if not isinstance(verbal_feedback, str):  # 有failed test情况下，verbal_feedback是dict而不是str
+                if not isinstance(verbal_feedback, str):
                     if tmp_count <= 5:
                         self.args.verbal_length_check_num += 1
                         if len(self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})) > 2048:
@@ -626,7 +625,7 @@ class LDB:
                 failed_test_list = []
                 tmp_count = 0
                 for k, verbal_feedback in enumerate(verbal_feedbacks):
-                    if not isinstance(verbal_feedback, str):  # 有failed test情况下，verbal_feedback是dict而不是str
+                    if not isinstance(verbal_feedback, str):
                         if tmp_count <= 5:
                             self.args.verbal_length_check_num += 1
                             if len(self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})) > 2048:
@@ -656,8 +655,8 @@ class LDB:
 
         output_dict = {}
         output_dict['final_program'] = cur_func_impl
-        output_dict['train_reward'] = train_reward  # 这里的train reward对应的是test的code的
-        output_dict['test_reward'] = test_reward  # 这里的test reward并不是最高train reward的，而是最后一次的train reward的代码
+        output_dict['train_reward'] = train_reward
+        output_dict['test_reward'] = test_reward
         output_dict['all_programs'] = complete_programs
         output_dict['all_train_rewards'] = train_rewards
         output_dict['all_test_rewards'] = test_rewards
@@ -681,10 +680,8 @@ class LDB:
             else:
                 return self.cached_reward[tuple(s)]
 
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
 
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, mode, with_verbal=with_verbal)  # with_verbal: curr_res=[[True/False, feedback_dict]]
             fixed = []
@@ -721,7 +718,6 @@ class LDB:
         pass_rate = np.mean(np.asarray(curr_res) > 0) if len(curr_res) > 0 else 0
         reward = pass_rate
 
-        # 添加到cached reward
         if mode == 'train':
             self.cached_reward[tuple(s)] = reward
             if with_verbal:

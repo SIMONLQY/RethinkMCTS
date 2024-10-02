@@ -88,7 +88,6 @@ class HumanevalExecutor:
         """
         Check if the code is correct
         """
-        # 要测得真实结果这个multiprocessing必须开启，因为测试中去掉有害函数的部分需要用到这个
         if not self.args.debug:
             manager = multiprocessing.Manager()
             result = manager.list()
@@ -190,7 +189,7 @@ class HumanevalExecutor:
                         # Once you have read this disclaimer and taken appropriate precautions,
                         # uncomment the following line and proceed at your own risk:
                         test_code = func_call + '\n' + assert_statement
-                        exec(test_code, exec_globals)  # �����һ�����Ǵ��뱾���ڶ������ǲ��Ժ�����ִ�е��ǲ��Ժ��������test case�����ˣ���AssertionError
+                        exec(test_code, exec_globals)
                     result.append("passed")
             except TimeoutException:
                 result.append("timed out")
@@ -218,16 +217,15 @@ class HumanevalExecutor:
             if error != '':
                 if error == "TIMEOUT":
                     return [False, {'error': 'TIMEOUT', 'output': f"\n{assert_statement.strip()}\n\n# Current Execution Output: \nTIMEOUT"}]
-                # test failed 可能是因为assertion error或者其他error
                 output = eval_code(entry, func_call, assert_statement)
 
-                if output == '':  # 第一次exec出错可能是output与期望不符合，但是eval还是''说明没有output，说明有error
+                if output == '':
                     output = error
 
                 failed_test = f"\n{assert_statement.strip()}\n\n# Current Execution Output: \n{output}"
 
                 feedback_dict = {
-                    'error': error,  # 这个error暂时没有用它，因为大部分都是AssertionError
+                    'error': error,
                     'output': failed_test
                 }
                 return [False, feedback_dict]

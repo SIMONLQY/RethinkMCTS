@@ -2,7 +2,7 @@
 import os
 import sys
 cur_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(cur_path[:cur_path.find('RethinkMCTS')] + 'RethinkMCTS')  # 这里要改为你自己的项目的主目录
+sys.path.append(cur_path[:cur_path.find('RethinkMCTS')] + 'RethinkMCTS')
 import gzip
 import json
 from utils import *
@@ -60,10 +60,10 @@ def read_humaneval_dataset(
 
 
 def main():
-    # 文件1
+    # file 1
     # problem_file = f"{get_raw_data_path()}/humaneval-x/python/data/humaneval_python.jsonl.gz"
     problem_file = f"{get_proj_path()}/dataProcess/humaneval/processed.jsonl"
-    problems = read_humaneval_dataset(problem_file, dataset_type="humaneval")  # 读取问题集，返回的是一个字典，key是task_id，value是一个字典，包括prompt, test, canonical_solution等
+    problems = read_humaneval_dataset(problem_file, dataset_type="humaneval")
 
     for problem in problems.keys():
         print(problem)
@@ -75,7 +75,7 @@ def main():
         break
     assert 0
 
-    # 文件2
+    # file 2
     # with_given_tests_file = f"{get_proj_path()}/dataProcess/humaneval/tests.jsonl"
     # items = {}
     # with jsonlines.open(with_given_tests_file) as reader:
@@ -91,7 +91,6 @@ def main():
 
     # 写入文件3
     target_file = f"{get_proj_path()}/dataProcess/humaneval/processed.jsonl"
-    # 将每个dict转换为JSON格式的字符串并写入文件
     # with open(target_file, "w") as file:
     #     for problem in problems.keys():
     #         item = problems[problem]
@@ -100,7 +99,6 @@ def main():
 
     with jsonlines.open(target_file) as reader:
         for item in reader:
-            print('\nalsdjflkasjdlfajsdlfjalskfjlaskdjfla')
             for key in item.keys():
                 print('----------------')
                 print(key)

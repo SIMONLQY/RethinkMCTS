@@ -124,14 +124,12 @@ class RethinkMCTSNoVerb:
         Function tree_policy is a function taking an agent + a list of ChanceNodes as argument
         and returning the one chosen by the tree policy.
         """
-        # 开始时，root是None
         decision_node_num = 0
         self.root = MineDecisionNode(None, initial_state, done, generator=self.generator, id=decision_node_num, tokenizer=self.tokenizer, initial_state=initial_state)
         self.root.__expand__()
         decision_node_num += 1
-        # 如果rollouts=1，产生的程序存在cached_rewards里面的只有一个完整程序，其实select那一步就已经选了走哪个完整程序了
         print("Performing rollouts.")
-        for rollout_count in range(self.args.rollout):  # 这个rollout控制的是选择次数，如果从根节点开始，第一次选第一层，第二次可能选的是第二层，第三次选第三层
+        for rollout_count in range(self.args.rollout):
             self.args.rollout_count = rollout_count
             if self.term_cond():
                 break
@@ -146,19 +144,18 @@ class RethinkMCTSNoVerb:
                     if node.is_terminal:
                         select = False  # Selected a terminal DecisionNode
                     else:
-                        node = self.node_choose_policy(self, node.children)  # 根据P-UCB从node的children中选择一个最大值的node， node is now a ChanceNode
-                else:  # ChanceNode，（状态，动作）节点，相当于树中的一条边
+                        node = self.node_choose_policy(self, node.children)
+                else:
                     state_p, reward, terminal = self.transition(node.parent.state, node.action)
-                    rewards.append(reward)  # 做完动作没有terminal的情况下，reward为0，后面backpropagation主要靠estimation
+                    rewards.append(reward)
 
-                    new_state = True  # 如果树有很多层，这里的while循环会从根节点一层一层往下走，直到找到一个新的state_p
-                    for i in range(len(node.children)):  # 其实chancenode只有一个child, 或者没有child(更常见，因为是还没有探索过的节点)
+                    new_state = True
+                    for i in range(len(node.children)):
                         if node.children[i].state == state_p:
-                            # Shun: state_p already in the tree, point node to the corresponding Decision Node
                             node = node.children[i]
                             new_state = False
                             break
-                    if new_state:  # 一开始如果是三个rollouts，就三个root的children都会经过这里
+                    if new_state:
                         select = False  # Selected a ChanceNode
 
             selection_print = []
@@ -179,10 +176,9 @@ class RethinkMCTSNoVerb:
                 # print('\n-----------1selected action: ')
                 # print(f"{self.tokenizer.decode([node.action])}")
 
-                # chance node 只有一个子节点，就是加上了那个动作的节点,但每一个decision node在创建的时候都会带有3个可能的动作
                 node.children.append(MineDecisionNode(node, state_p, terminal, generator=self.generator, id=decision_node_num, decision_memory=node.chance_memory, tokenizer=self.tokenizer, initial_state=initial_state))
                 decision_node_num += 1
-                node = node.children[-1]  # 就是新增加的decision node
+                node = node.children[-1]
 
             # Evaluation
             # now `rewards` collected all rewards in the ChanceNodes above this node
@@ -229,7 +225,7 @@ class RethinkMCTSNoVerb:
                     failed_test_list = []
                     tmp_count = 0
                     for k, verbal_feedback in enumerate(verbal_feedbacks):
-                        if not isinstance(verbal_feedback, str):  # 有failed test情况下，verbal_feedback是dict而不是str
+                        if not isinstance(verbal_feedback, str):
                             if tmp_count <= 5:
                                 self.args.verbal_length_check_num += 1
                                 if len(self.tokenizer.encode(verbal_feedback['output'], allowed_special={'<|endoftext|>'})) > 2048:
@@ -239,10 +235,9 @@ class RethinkMCTSNoVerb:
                                 failed_tests += f"\n\n## Failed test {tmp_count + 1}: {verbal_feedback['output']}"
                                 failed_test_list.append(verbal_feedback['output'])
                                 tmp_count += 1
-                    if failed_tests != '':  # 有错误
+                    if failed_tests != '':
                         code = self.tokenizer.decode(code_id)
 
-                        # 将错误总结成本节点的reflection
                         system_msg = f"You are an expert in programming."
                         verbalFeedback = (f"{self.tokenizer.decode(state)}\n\n {code}\n\n"
                                           f"Above is the combination of problem + thoughts & reflections + code. The code is generated following the thoughts to solve the problem. "
@@ -254,29 +249,9 @@ class RethinkMCTSNoVerb:
                             tmp_shorter = self.tokenizer.encode(verbalFeedback, allowed_special={'<|endoftext|>'})[:8000]
                             verbalFeedback = self.tokenizer.decode(tmp_shorter)
 
-
-                        # 如果有错误，且该节点是第一次生成则父节点再次生成一次;否则就不管这个错误了，还是继续生成后续节点，
-                        if node.parent and node.second_chance_flag:  # 注意是自己节点而非自己父亲节点的second_chance_flag，因为当前节点被替换时，可设置新生成节点的second_chance_flag为False
+                        if node.parent and node.second_chance_flag:
                             replace_decision_id = node.id
                             new_child = node.parent.parent.reset_child(id=node.parent.id, verbal_feedback=verbalFeedback, json_save_flag=self.args.json_save_all, json_save_dict=self.save_mid_json, rollout_count=rollout_count)
-
-                            # # all ancestor renew
-                            # # 1. 先更新node的父节点chance node
-                            # cur_node = node.parent.parent
-                            # while cur_node:
-                            #     if cur_node.parent:
-                            #         cur_node.parent.renew_action(new_experience=verbalFeedback, generator=self.generator, tokenizer=self.tokenizer)
-                            #         cur_node = cur_node.parent.parent
-                            #     else:
-                            #         break
-                            # # 2. 然后再更新state，这样才能保证后面的state是正确的，否则直接跟着renew action更新state，高层节点的动作还没更新
-                            # cur_node = node.parent.parent
-                            # while cur_node:
-                            #     cur_node.renew_state(initial_state=initial_state)
-                            #     if cur_node.parent:
-                            #         cur_node = cur_node.parent.parent
-                            #     else:
-                            #         break
 
                             next_state, reward, terminal = self.transition(new_child.parent.state, new_child.action)
                             rewards.pop()
@@ -290,43 +265,18 @@ class RethinkMCTSNoVerb:
                             # state = node.get_with_reflection_state(initial_state)
                             continue
 
-                        # no reflect
-                        # input_prompt = verbalFeedback + f"\nPlease provide a short reflection in two sentences on the code and errors. This reflection should remind the programmer not to make the mistake.\n" \
-                        #
-                        # print('\n--------------7 summarizing input prompt')
-                        # print(input_prompt)
-                        #
-                        # response, _ = self.generator.generate_response_api(input_prompt, top_k=1, max_length=1024, system_message=system_msg)
-                        #
-                        # print('\n--------------8 summarizing response')
-                        # print(response)
-                        # response = f"Reflection: {response}"
-                        # node.decision_memory = self.tokenizer.encode(response)   # 叶子节点首次获得其decision memory
-
                         node.__expand__()
                     else:
                         node.__expand__()
 
                     # save this information for demo
-                    node.info['complete_program'] = code_id  # decision node的info里面存了这个节点的可能的complete_program
+                    node.info['complete_program'] = code_id
 
                     self.sample_nums = self.sample_nums + 1
                 else:
                     # the rewards are defined on terminating actions, the terminal states have no rewards
                     estimate = 0
-                break  # 如果正常走到这里，就不用second chance，即第二次进入for循环了
-
-            # Backpropagation
-            # Backpropagation of verbal feedback
-            # no reflect
-            # if verbalFeedback != '':
-            #     cur_node = node.parent.parent
-            #     while cur_node:
-            #         cur_node.__reflect__(new_experience=verbalFeedback)
-            #         if cur_node.parent:
-            #             cur_node = cur_node.parent.parent
-            #         else:
-            #             break
+                break
 
             # Backpropagation of scaled reward
             node.visits += 1
@@ -342,7 +292,6 @@ class RethinkMCTSNoVerb:
             # should finish backpropagating all the rewards back
             assert len(rewards) == 0
             self.sample_times.append(time.time() - self.st)
-        # root的children是chance node，每个对应于一个动作
 
     def convert_state_to_program(self, s):
         s = self.tokenizer.decode(s)
@@ -359,10 +308,8 @@ class RethinkMCTSNoVerb:
             else:
                 return self.cached_reward[tuple(s)]
 
-        # 转换成文本
         output_str = self.convert_state_to_program(s)
 
-        # 计算pass rate
         try:
             curr_res = self.executor.check_correctness(self.cur_prob_instance, output_str, mode, with_verbal=with_verbal)  # with_verbal: curr_res=[[True/False, feedback_dict]]
             fixed = []
@@ -389,7 +336,6 @@ class RethinkMCTSNoVerb:
         pass_rate = np.mean(np.asarray(curr_res) > 0) if len(curr_res) > 0 else 0
         reward = pass_rate
 
-        # 添加到cached reward
         if mode == 'train':
             self.cached_reward[tuple(s)] = reward
             if with_verbal:
@@ -440,7 +386,6 @@ class RethinkMCTSNoVerb:
 
     def get_evaluation(self, cur_state, cur_code=None):
         evaluation = 0.0
-        # 原文件中verbal memory的evaluation方式
         system_msg = f"You are a evaluator that evaluates the code is suitable for solving a given problem."
         input_prompt = (f"{self.tokenizer.decode(cur_state)}\n\n{cur_code}\n\n"
                         f"Above is a Python code problem with the thoughts and code to solve the problem. The code could pass all the example test cases, however, it may or may not be completely correct. \n"
@@ -452,18 +397,6 @@ class RethinkMCTSNoVerb:
                         f"{{\"evaluation\": 1.0, \"explanation\": \"The generated code is the correct solution that can pass all the possible test cases and strange corner cases too. \"}} \n"
                         f"{{\"evaluation\": 0.1, \"explanation\": \"The code is not the correct solution but can pass some simple test cases. \"}} \n"
                         f"{{\"evaluation\": 0.85, \"explanation\": \"The code can pass most test cases while may fail on some corner cases. \"}} ")
-
-        # new prompt
-        # input_prompt = (f"{self.tokenizer.decode(cur_state)}\n\n{cur_code}\n\n"
-        #                 f"Above is a Python code problem with the thoughts and code to solve the problem. The code could pass all the example test cases, however, it may or may not be completely correct. \n"
-        #                 f"Please evaluate and return the correctness score in range [-1, 1]\n"
-        #                 f"Evaluate the correctness of the code and give only ONE evaluation score. \n"
-        #                 f"The code's correctness is whether it can pass all the possible unseen test cases of the problem, not just the given ones."
-        #                 f"Example Answers: \n"
-        #                 f"{{\"evaluation\": 0.85,  \"explanation\": \"The code seems correct, but i am confused about some part of it so i am not sure.\"}} \n"
-        #                 f"{{\"evaluation\": 1.0, \"explanation\": \"The generated code is the correct solution that can pass all the possible test cases. \"}} \n"
-        #                 f"{{\"evaluation\": 0.3, \"explanation\": \"The code is not the correct solution but can pass some simple test cases. \"}} \n"
-        #                 f"{{\"evaluation\": 0.75, \"explanation\": \"The code can pass most test cases while may fail on some corner cases, for example test case [CONCRETE_SAMPLE] is one that the code can't pass. \"}} ")
 
         print('\n--------------5 evaluation input prompt')
         print(input_prompt)
@@ -490,7 +423,6 @@ class RethinkMCTSNoVerb:
     def gen_test_evaluation(self, cur_state, cur_code=None, initial_state=None):
         self.args.generate_tests_total += 1
 
-        # 生成新的test case来评估代码
         system_msg = f"As a tester, your task is to create comprehensive test cases for the incomplete Python function provided below."
         input_prompt = \
 f"""
@@ -523,7 +455,6 @@ conditions.
         test_case_list = extract_generated_test_cases(response)
         self.cur_prob_instance['generated_tests'] = test_case_list
         with_verbal = False
-        # 计算pass rate
         try:
             if len(test_case_list) == 0:
                 assert False
@@ -553,7 +484,6 @@ conditions.
         except Exception as e:
             self.args.failed_generate_tests_count += 1
             print(f"test framework exception = {repr(e)}{e}\n")
-            # 如果生成的test case无法在格式上满足要求，则让大模型判断是否正确
             input_prompt = (f"{self.tokenizer.decode(cur_state)}\n\n{cur_code}\n\n"
                             f"Above is a Python code problem with the thoughts and code to solve the problem. The code could pass all the example test cases, however, it may or may not be completely correct. \n"
                             f"Please evaluate and return the correctness score in range [-1, 1]\n"
@@ -662,7 +592,7 @@ class MineDecisionNode:
             json_save_dict.append(f"reset_child_output_{rollout_count}: \n{response}")
 
         self.possible_actions[id] = self.tokenizer.encode(response)
-        self.action_scores[id] = 1.0  # 暂时无用
+        self.action_scores[id] = 1.0
         self.children[id] = MineChanceNode(self, (self.tokenizer.encode(response), 1.0), chance_memory=self.decision_memory, id=id)
 
         return self.children[id]
@@ -711,22 +641,6 @@ class MineDecisionNode:
 
 
     def get_with_reflection_state(self, initial_state):
-        # one by one way
-        # rst_state = initial_state
-        # thought_refs = []
-        # if self.parent and (self.decision_memory != self.parent.chance_memory):
-        #     immediate_reflection = self.decision_memory
-        #     thought_refs.append(immediate_reflection)
-        # cur_node = self.parent
-        #
-        # while cur_node:
-        #     thought_ref_pair = cur_node.parent.decision_memory + cur_node.action
-        #     thought_refs.append(thought_ref_pair)
-        #     cur_node = cur_node.parent.parent
-        # if len(thought_refs) > 0:
-        #     for thought_ref in thought_refs[::-1]:
-        #         rst_state = rst_state + thought_ref
-
         # split way
         rst_state = initial_state
         thoughts = []
@@ -806,35 +720,6 @@ class MineChanceNode:
         return len(self.children) > 0
 
     def renew_action(self, new_experience, generator, tokenizer):
-#         # 1. 判断当前节点是否是问题节点，需要修改(renew judge)
-#         system_msg = f"You are an expert thinker and programmer."
-#         input_prompt = \
-#             f"""
-# *Role**: As a thinker and programmer, your task is to find or determine the flawed thought that led to the errors in the code, rather than fixing the code itself.
-# **Problem and thoughts and code**:
-#
-# {new_experience}
-#
-# **Instructions**:
-# - Please determine whether the current thought is misleading and has led to the error in the final code:
-#
-# {tokenizer.decode(self.action)}
-#
-# - If it is, reply "YES"; if it is not, reply "NO", with a brief yet comprehensive explanation on the judgement.
-# - The formation of the response should be: "Judgement: YES/NO. Explanation: The thought is/isn't misleading because..."
-# - Remember that you only need to provide the judgement on the thought, no need to provide the code.
-#                 """
-#         print('\n-----------15renew action judge input prompt')
-#         print(input_prompt)
-#         response, _ = generator.generate_response_api(input_prompt, top_k=1, max_length=1024, system_message=system_msg)
-#         print('\n-----------16renew action judge response')
-#         print(response)
-#
-#         if 'yes' not in response.lower():
-#             return
-#
-#
-#         # 2. 生成新的thought
         system_msg = f"You are an expert thinker and programmer."
         input_prompt = \
             f"""
